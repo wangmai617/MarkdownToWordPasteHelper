@@ -1,0 +1,2 @@
+# MarkdownToWordPasteHelper
+AI对话Markdown文本转Word格式优化粘贴助手，解决AI内容复制到Word排版错乱问题，本地离线桌面工具，高校教师科研办公自用软件。
