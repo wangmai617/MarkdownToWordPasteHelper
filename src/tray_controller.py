@@ -15,16 +15,16 @@ from PyQt5.QtWidgets import (QSystemTrayIcon, QMenu, QAction, QWidget,
                              QMessageBox, QApplication, QComboBox)
 from PyQt5.QtGui import QIcon, QKeySequence
 from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtCore import QMimeData
-from PyQt5.QtGui import QClipboard
+# 所有UI对话框已移除
 
 
 class TrayController(QWidget):
     """继承了QWidget，但不显示，只用来挂托盘图标"""
 
-    def __init__(self):
+    def __init__(self, converter):
         super().__init__()
-        # 提示气泡默认开启
+        self.converter = converter        # Markdown转换器
+        # 提示气泡默认开启，硬编码为 True
         self.show_tips = True
 
         # ---------- 创建托盘图标 ----
@@ -83,54 +83,18 @@ class TrayController(QWidget):
 
         self.tray_icon.setContextMenu(menu)
 
-    def _paste_demo_html(self):
-        """生成一段固定的示例HTML内容并写入剪贴板，模拟转换结果"""
-        # 这是一段写死的演示内容，包含标题、列表和加粗
-        demo_html = (
-            "<!DOCTYPE html>\n"
-            "<html>\n"
-            "<head>\n"
-            '<meta charset="utf-8">\n'
-            "<style>\n"
-            "body { font-family: 'Calibri', sans-serif; font-size: 11pt; }\n"
-            "h2 { font-size: 16pt; font-weight: bold; }\n"
-            "strong { font-weight: bold; }\n"
-            "ul { margin-left: 20pt; }\n"
-            "</style>\n"
-            "</head>\n"
-            "<body>\n"
-            "<h2>示例转换结果</h2>\n"
-            "<p>这是一个 <strong>演示</strong> 段落，Markdown 转换模块尚未集成。</p>\n"
-            "<ul>\n"
-            "<li>功能仍在开发中</li>\n"
-            "<li>请期待后续更新</li>\n"
-            "</ul>\n"
-            "</body>\n"
-            "</html>"
-        )
-        plain_text = "示例转换结果\n这是一个演示段落，Markdown转换模块尚未集成。\n- 功能仍在开发中\n- 请期待后续更新"
-        
-        mime_data = QMimeData()
-        mime_data.setHtml(demo_html)
-        mime_data.setText(plain_text)
-        
-        clipboard = QApplication.clipboard()
-        clipboard.setMimeData(mime_data, QClipboard.Clipboard)
-        return True, plain_text
-
     def manual_convert_paste(self):
-        """用户通过菜单点击"转换并粘贴"时调用，写入固定演示内容到剪贴板"""
-        success, preview = self._paste_demo_html()
+        """用户通过菜单点击"转换并粘贴"时调用，仅转换写入剪贴板，不模拟Ctrl+V"""
+        success, preview = self.converter.convert_and_copy_to_clipboard()
         if success:
             if self.show_tips:
-                self.show_message("已写入剪贴板", "演示内容已就绪，请在Word中按Ctrl+V粘贴")
+                self.show_message("转换成功", "已转换为Word格式并写入剪贴板，请手动粘贴")
         else:
-            self.show_message("操作失败", preview)
+            self.show_message("转换失败", preview)
 
     def clear_clipboard(self):
         """清空剪贴板，避免隐私泄漏"""
-        clipboard = QApplication.clipboard()
-        clipboard.clear(QClipboard.Clipboard)
+        self.converter.clear_clipboard()
         self.show_message("操作完成", "剪贴板已清空")
 
     def open_settings(self):
@@ -147,7 +111,7 @@ class TrayController(QWidget):
             "<p>开发者：王迈 (上海外国语大学)</p>"
             "<p>邮箱：wangmai@shisu.edu.cn</p>"
             "<hr>"
-            "<p>使用方法：右键托盘图标选择\"转换并粘贴\"，然后在Word中Ctrl+V粘贴。</p>"
+            "<p>使用方法：复制Markdown文本，右键托盘图标选择\"转换并粘贴\"，然后在Word中Ctrl+V粘贴。</p>"
         )
         QMessageBox.about(None, "关于", about_text)
 
@@ -163,3 +127,8 @@ class TrayController(QWidget):
     def show_message(self, title, message, duration=2000):
         """在托盘区弹出气泡提示"""
         self.tray_icon.showMessage(title, message, QSystemTrayIcon.Information, duration)
+
+    # 开机自启方法暂时保留但不自动调用，可供将来扩展
+    # def set_auto_start(self, enable):
+    #     """将开机自启信息写入注册表（HKEY_CURRENT_USER下）"""
+    #     ...
