@@ -15,17 +15,16 @@ from PyQt5.QtWidgets import (QSystemTrayIcon, QMenu, QAction, QWidget,
                              QMessageBox, QApplication, QComboBox)
 from PyQt5.QtGui import QIcon, QKeySequence
 from PyQt5.QtCore import Qt, QTimer
-# 所有UI对话框已移除
+# PreviewDialog 已随 ui_dialogs 移除
 
 
 class TrayController(QWidget):
     """继承了QWidget，但不显示，只用来挂托盘图标"""
 
-    def __init__(self, converter):
+    def __init__(self, settings, converter):
         super().__init__()
+        self.settings = settings          # 保存用户设置对象
         self.converter = converter        # Markdown转换器
-        # 提示气泡默认开启，硬编码为 True
-        self.show_tips = True
 
         # ---------- 创建托盘图标 ----
         self.tray_icon = QSystemTrayIcon(self)
@@ -43,6 +42,8 @@ class TrayController(QWidget):
         self.create_tray_menu()
 
         # 双击托盘图标（暂时无操作）
+        # self.tray_icon.activated.connect(self.on_tray_activated)
+        # 留个连接以备后用
         self.tray_icon.activated.connect(lambda reason: None)
 
         # 此窗口无用，隐藏起来
@@ -83,14 +84,25 @@ class TrayController(QWidget):
 
         self.tray_icon.setContextMenu(menu)
 
+    # 双击响应暂时停用
+    # def on_tray_activated(self, reason):
+    #     """处理托盘图标的激活事件，目前只响应双击（打开预览）"""
+    #     if reason == QSystemTrayIcon.DoubleClick:
+    #         self.preview_markdown()
+
     def manual_convert_paste(self):
         """用户通过菜单点击"转换并粘贴"时调用，仅转换写入剪贴板，不模拟Ctrl+V"""
         success, preview = self.converter.convert_and_copy_to_clipboard()
         if success:
-            if self.show_tips:
+            if self.settings.get_show_tips():
                 self.show_message("转换成功", "已转换为Word格式并写入剪贴板，请手动粘贴")
         else:
             self.show_message("转换失败", preview)
+
+    # 预览方法已移除
+    # def preview_markdown(self):
+    #     """弹出预览窗口，查看当前剪贴板Markdown内容及转换后样式"""
+    #     ...
 
     def clear_clipboard(self):
         """清空剪贴板，避免隐私泄漏"""
@@ -128,7 +140,28 @@ class TrayController(QWidget):
         """在托盘区弹出气泡提示"""
         self.tray_icon.showMessage(title, message, QSystemTrayIcon.Information, duration)
 
-    # 开机自启方法暂时保留但不自动调用，可供将来扩展
-    # def set_auto_start(self, enable):
-    #     """将开机自启信息写入注册表（HKEY_CURRENT_USER下）"""
-    #     ...
+    def set_auto_start(self, enable):
+        """将开机自启信息写入注册表（HKEY_CURRENT_USER下）（省去了配置文件）"""
+        import winreg
+        key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+        app_name = "MarkdownWordPasteHelper"
+
+        try:
+            # 打开注册表键，准备写入
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE)
+            if enable:
+                # 获取当前运行的可执行文件路径
+                exe_path = sys.executable if getattr(sys, 'frozen', False) else sys.argv[0]
+                winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, exe_path)
+            else:
+                # 关闭自启则删去键值
+                try:
+                    winreg.DeleteValue(key, app_name)
+                except FileNotFoundError:
+                    # 未写入，忽略
+                    pass
+            winreg.CloseKey(key)
+            return True
+        except Exception as e:
+            # 权限不够或者其他原因时，忽略
+            return False

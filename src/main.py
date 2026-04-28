@@ -20,7 +20,9 @@ from PyQt5.QtCore import Qt, QTimer
 
 # 将软件功能分写为如下模块：
 from tray_controller import TrayController      #系统托盘图标和右键菜单
-# SettingsManager 已移除，配置改用硬编码默认值
+# clipboard_monitor 模块已移除
+# hotkey_manager 模块已移除
+from settings_manager import SettingsManager    #读写配置文件，保存用户设置
 from markdown_converter import MarkdownConverter  #核心转换逻辑，Markdown到HTML
 
 # import math  #以前好像用过，留着备用
@@ -73,14 +75,17 @@ def main():
     app.setQuitOnLastWindowClosed(False)
 
     # ---- 创建各模块实例
+    # 配置管理：用户保存的快捷键、开机启动等设置
+    settings = SettingsManager()
     # 核心转换器：把Markdown转成Word能识别的HTML
     converter = MarkdownConverter()
 
-    # 托盘控制器：包含了整个托盘菜单和交互逻辑（不再需要settings对象）
-    tray = TrayController(converter)
+    # 托盘控制器：包含了整个托盘菜单和交互逻辑
+    tray = TrayController(settings, converter)
 
-    # 开机自启默认关闭，所以不需要调用 set_auto_start
-    # 如果需要开机自启，日后可以加个命令行参数来开启，暂时不管
+    # 开机自启选项写入注册表，这里先做出判断
+    if settings.get_auto_start():
+        tray.set_auto_start(True)
 
     # 显示系统托盘图标
     tray.show()
