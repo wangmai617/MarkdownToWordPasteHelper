@@ -1,6 +1,6 @@
 """
 系统托盘控制器及主界面逻辑
-包含了托盘图标、右键菜单等。
+包含了托盘图标、右键菜单、设置窗口、预览窗口等。
 由于无主界面，此模块即为用户交互界面。
 2.0版可以加入主界面，并增加其他功能。
 
@@ -15,7 +15,7 @@ from PyQt5.QtWidgets import (QSystemTrayIcon, QMenu, QAction, QWidget,
                              QMessageBox, QApplication, QComboBox)
 from PyQt5.QtGui import QIcon, QKeySequence
 from PyQt5.QtCore import Qt, QTimer
-# PreviewDialog 已随 ui_dialogs 移除
+from ui_dialogs import PreviewDialog   # SettingsDialog 已移除
 
 
 class TrayController(QWidget):
@@ -41,10 +41,8 @@ class TrayController(QWidget):
         # 搭建菜单
         self.create_tray_menu()
 
-        # 双击托盘图标（暂时无操作）
-        # self.tray_icon.activated.connect(self.on_tray_activated)
-        # 留个连接以备后用
-        self.tray_icon.activated.connect(lambda reason: None)
+        # 双击托盘图标以预览剪贴板内容
+        self.tray_icon.activated.connect(self.on_tray_activated)
 
         # 此窗口无用，隐藏起来
         self.hide()
@@ -57,6 +55,11 @@ class TrayController(QWidget):
         action_convert = QAction("转换并粘贴(&P)", self)
         action_convert.triggered.connect(self.manual_convert_paste)
         menu.addAction(action_convert)
+
+        # 预览剪贴板中Markdown原文及转换结果
+        action_preview = QAction("预览Markdown(&M)", self)
+        action_preview.triggered.connect(self.preview_markdown)
+        menu.addAction(action_preview)
 
         # 清空剪切板
         action_clear = QAction("清空剪贴板(&C)", self)
@@ -84,11 +87,10 @@ class TrayController(QWidget):
 
         self.tray_icon.setContextMenu(menu)
 
-    # 双击响应暂时停用
-    # def on_tray_activated(self, reason):
-    #     """处理托盘图标的激活事件，目前只响应双击（打开预览）"""
-    #     if reason == QSystemTrayIcon.DoubleClick:
-    #         self.preview_markdown()
+    def on_tray_activated(self, reason):
+        """处理托盘图标的激活事件，目前只响应双击（打开预览）"""
+        if reason == QSystemTrayIcon.DoubleClick:
+            self.preview_markdown()
 
     def manual_convert_paste(self):
         """用户通过菜单点击"转换并粘贴"时调用，仅转换写入剪贴板，不模拟Ctrl+V"""
@@ -99,10 +101,26 @@ class TrayController(QWidget):
         else:
             self.show_message("转换失败", preview)
 
-    # 预览方法已移除
-    # def preview_markdown(self):
-    #     """弹出预览窗口，查看当前剪贴板Markdown内容及转换后样式"""
-    #     ...
+    def _get_clipboard_text(self):
+        """直接从系统剪贴板获取纯文本，无文本则返回空字符串"""
+        mime_data = QApplication.clipboard().mimeData()
+        if mime_data.hasText():
+            return mime_data.text()
+        return ""
+
+    def preview_markdown(self):
+        """弹出预览窗口，查看当前剪贴板Markdown内容及转换后样式"""
+        md_text = self._get_clipboard_text()
+        if not md_text:
+            QMessageBox.information(None, "预览", "剪贴板中没有文本内容")
+            return
+
+        # 生成预览用的HTML和纯文本，注意：并未更改剪切板内容。
+        preview_html = self.converter.convert_to_html(md_text)
+        preview_plain = self.converter.markdown_to_plain_preview(md_text)
+
+        dialog = PreviewDialog(md_text, preview_plain, preview_html, self)
+        dialog.exec_()
 
     def clear_clipboard(self):
         """清空剪贴板，避免隐私泄漏"""
