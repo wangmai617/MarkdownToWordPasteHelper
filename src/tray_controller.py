@@ -15,7 +15,7 @@ from PyQt5.QtWidgets import (QSystemTrayIcon, QMenu, QAction, QWidget,
                              QMessageBox, QApplication, QComboBox)
 from PyQt5.QtGui import QIcon, QKeySequence
 from PyQt5.QtCore import Qt, QTimer
-from ui_dialogs import PreviewDialog   # SettingsDialog 已移除
+from ui_dialogs import SettingsDialog, PreviewDialog
 
 
 class TrayController(QWidget):
@@ -25,6 +25,8 @@ class TrayController(QWidget):
         super().__init__()
         self.settings = settings          # 保存用户设置对象
         self.converter = converter        # Markdown转换器
+        # hotkey_manager 已移除
+        # self.debug = False  # 也许以后加个调试模式
 
         # ---------- 创建托盘图标 ----
         self.tray_icon = QSystemTrayIcon(self)
@@ -68,10 +70,15 @@ class TrayController(QWidget):
 
         menu.addSeparator()
 
-        # 打开设置（暂未开放）
+        # 打开设置对话框
         action_settings = QAction("设置(&S)", self)
         action_settings.triggered.connect(self.open_settings)
         menu.addAction(action_settings)
+
+        # 也许将来加个导出功能
+        # action_export = QAction("导出HTML", self)
+        # action_export.triggered.connect(self.export_html)
+        # menu.addAction(action_export)
 
         menu.addSeparator()
 
@@ -128,11 +135,16 @@ class TrayController(QWidget):
         self.show_message("操作完成", "剪贴板已清空")
 
     def open_settings(self):
-        """设置功能暂未开放"""
-        QMessageBox.information(None, "提示", "设置功能暂未开放，敬请期待。")
+        """打开设置对话框"""
+        dialog = SettingsDialog(self.settings, self)
+        # 用exec_显示模态对话框，返回是否点击保存
+        if dialog.exec_() == QDialog.Accepted:
+            # 设置已保存，暂无需要同步的菜单状态
+            pass
 
     def show_about(self):
         """弹出关于对话框，显示作者、版本等信息"""
+        # 用HTML格式写简单的软件说明，注意项目名两边的引号用单引号字符串避免冲突
         about_text = (
             "<h2>Markdown转Word格式优化粘贴助手 V1.0</h2>"
             "<p>本软件将Markdown格式转换为Word格式，并保留基本排版信息。</p>"
@@ -181,5 +193,6 @@ class TrayController(QWidget):
             winreg.CloseKey(key)
             return True
         except Exception as e:
+            # print(e)  # 调试时可以看看异常类型
             # 权限不够或者其他原因时，忽略
             return False
