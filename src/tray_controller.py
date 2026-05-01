@@ -25,7 +25,7 @@ class TrayController(QWidget):
         super().__init__()
         self.settings = settings          # 保存用户设置对象
         self.converter = converter        # Markdown转换器
-        # hotkey_manager 已移除
+        self.hotkey_manager = None        # 热键管理器
         # self.debug = False  # 也许以后加个调试模式
 
         # ---------- 创建托盘图标 ----
@@ -49,14 +49,19 @@ class TrayController(QWidget):
         # 此窗口无用，隐藏起来
         self.hide()
 
+    def set_hotkey(self, hotkey):
+        """将外部创建的热键对象传入，方便菜单里操作"""
+        self.hotkey_manager = hotkey
+
     def create_tray_menu(self):
         """组装托盘右键菜单，顺序符合一般习惯"""
         menu = QMenu()
 
-        # 手动转换粘贴，仅写入剪贴板，用户需自行Ctrl+V
-        action_convert = QAction("转换并粘贴(&P)", self)
-        action_convert.triggered.connect(self.manual_convert_paste)
-        menu.addAction(action_convert)
+        # 手动转换粘贴，与快捷键功能相同
+        # 暂时去除此菜单项。由于焦点不在Word/WPS，托盘图标右键粘贴无法实现。
+        # action_convert = QAction("转换并粘贴(&P)", self)
+        # action_convert.triggered.connect(self.manual_convert_paste)
+        # menu.addAction(action_convert)
 
         # 预览剪贴板中Markdown原文及转换结果
         action_preview = QAction("预览Markdown(&M)", self)
@@ -70,7 +75,10 @@ class TrayController(QWidget):
 
         menu.addSeparator()
 
-        # 打开设置对话框
+        # 剪贴板监控菜单项已移除
+        # menu.addSeparator()
+
+        # 打开设置对话框，修改快捷键
         action_settings = QAction("设置(&S)", self)
         action_settings.triggered.connect(self.open_settings)
         menu.addAction(action_settings)
@@ -99,14 +107,11 @@ class TrayController(QWidget):
         if reason == QSystemTrayIcon.DoubleClick:
             self.preview_markdown()
 
-    def manual_convert_paste(self):
-        """用户通过菜单点击"转换并粘贴"时调用，仅转换写入剪贴板，不模拟Ctrl+V"""
-        success, preview = self.converter.convert_and_copy_to_clipboard()
-        if success:
-            if self.settings.get_show_tips():
-                self.show_message("转换成功", "已转换为Word格式并写入剪贴板，请手动粘贴")
-        else:
-            self.show_message("转换失败", preview)
+    # 同上，转换粘贴菜单项已去除，仅保留代码
+    # def manual_convert_paste(self):
+    #     """用户通过菜单点击“转换并粘贴”时调用，功能同快捷键"""
+    #     if self.hotkey_manager:
+    #         self.hotkey_manager.on_hotkey_pressed()
 
     def _get_clipboard_text(self):
         """直接从系统剪贴板获取纯文本，无文本则返回空字符串"""
@@ -134,16 +139,23 @@ class TrayController(QWidget):
         self.converter.clear_clipboard()
         self.show_message("操作完成", "剪贴板已清空")
 
+    # toggle_monitor 方法已移除
+
     def open_settings(self):
-        """打开设置对话框"""
-        dialog = SettingsDialog(self.settings, self)
+        """打开设置对话框，若用户点击保存，则同步监控开关状态"""
+        dialog = SettingsDialog(self.settings, self.hotkey_manager, self)
         # 用exec_显示模态对话框，返回是否点击保存
         if dialog.exec_() == QDialog.Accepted:
-            # 设置已保存，暂无需要同步的菜单状态
+            # 设置对话框内已无监控选项，无需同步菜单项
             pass
 
     def show_about(self):
-        """弹出关于对话框，显示作者、版本等信息"""
+        """弹出关于对话框，显示作者、版本、快捷键等信息"""
+        hotkey_str = "未设置"
+        if self.hotkey_manager:
+            # modifiers_to_string返回像"Ctrl+Shift"这样的字符串
+            hotkey_str = f"{self.hotkey_manager.modifiers_to_string()} + {chr(self.hotkey_manager.vk_code)}"
+
         # 用HTML格式写简单的软件说明，注意项目名两边的引号用单引号字符串避免冲突
         about_text = (
             "<h2>Markdown转Word格式优化粘贴助手 V1.0</h2>"
@@ -153,12 +165,14 @@ class TrayController(QWidget):
             "<p>开发者：王迈 (上海外国语大学)</p>"
             "<p>邮箱：wangmai@shisu.edu.cn</p>"
             "<hr>"
-            "<p>使用方法：复制Markdown文本，右键托盘图标选择\"转换并粘贴\"，然后在Word中Ctrl+V粘贴。</p>"
+            f"<p>当前快捷键：{hotkey_str}</p>"
         )
         QMessageBox.about(None, "关于", about_text)
 
     def exit_app(self):
-        """完全退出程序：隐藏图标，退出Qt循环"""
+        """完全退出程序：注销快捷键，隐藏图标，退出Qt循环"""
+        if self.hotkey_manager:
+            self.hotkey_manager.unregister_hotkey()
         self.tray_icon.hide()
         QApplication.quit()
 

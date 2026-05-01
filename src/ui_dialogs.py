@@ -17,12 +17,12 @@ from PyQt5.QtGui import QKeySequence
 
 #  ===== 设置对话框  ========
 class SettingsDialog(QDialog):
-    def __init__(self, settings, parent=None):
+    def __init__(self, settings, hotkey_manager, parent=None):
         super().__init__(parent)
         self.settings = settings
-        # hotkey_manager 参数已移除
+        self.hotkey_manager = hotkey_manager
         self.setWindowTitle("设置")
-        self.setMinimumWidth(350)
+        self.setMinimumWidth(400)
         self.init_ui()
         self.load_settings()
         # 上面载入顺序可任意
@@ -30,9 +30,27 @@ class SettingsDialog(QDialog):
     def init_ui(self):
         layout = QVBoxLayout()
 
-        # 快捷键设置组已移除
+        # 热键部分
+        hotkey_group = QGroupBox("快捷键设置")
+        form = QFormLayout()
 
-        # 常规设置组
+        self.mod_combo = QComboBox()
+        self.mod_combo.addItems(["Ctrl+Shift", "Ctrl+Alt", "Shift+Alt", "Ctrl+Shift+Alt"])
+        form.addRow("修饰键:", self.mod_combo)
+
+        # 按键输入，一个字母或数字
+        key_layout = QHBoxLayout()
+        self.key_edit = QLineEdit()
+        self.key_edit.setMaxLength(1)
+        self.key_edit.setPlaceholderText("例如: V")
+        key_layout.addWidget(self.key_edit)
+        key_layout.addWidget(QLabel("(单个字母或数字)"))
+        form.addRow("按键:", key_layout)
+
+        hotkey_group.setLayout(form)
+        layout.addWidget(hotkey_group)
+
+        # 常规设置组（已移除剪贴板监控复选框）
         general_group = QGroupBox("常规设置")
         general_layout = QVBoxLayout()
         self.tips_check = QCheckBox("显示操作提示气泡")
@@ -56,12 +74,42 @@ class SettingsDialog(QDialog):
         self.setLayout(layout)
 
     def load_settings(self):
-        # 加载提示气泡和开机自启设置
+        config = self.settings.get_hotkey_config()
+        mod_str = config.get('modifiers', 'Ctrl+Shift')
+        # 找出匹配的索引
+        index = self.mod_combo.findText(mod_str)
+        if index >= 0:
+            self.mod_combo.setCurrentIndex(index)
+        self.key_edit.setText(config.get('key', 'V'))
+
+        # 加载提示气泡和开机自启设置（监控开关已移除）
         self.tips_check.setChecked(self.settings.get_show_tips())
         self.autostart_check.setChecked(self.settings.get_auto_start())
 
     def save_settings(self):
-        # 保存其他设置
+        # 修饰键解析
+        mod_str = self.mod_combo.currentText()
+        mod_str_orig = mod_str  # 留个原始值，暂时没用
+        key_char = self.key_edit.text().strip().upper()
+        if not key_char or len(key_char) != 1:
+            QMessageBox.warning(self, "输入错误", "请输入单个字母或数字作为快捷键按键")
+            return
+
+        modifiers = 0
+        if 'Ctrl' in mod_str:
+            modifiers |= 0x0002
+        if 'Shift' in mod_str:
+            modifiers |= 0x0004
+        if 'Alt' in mod_str:
+            modifiers |= 0x0001
+
+        vk_code = ord(key_char)
+
+        # 更新快捷键，如果管理器还存在
+        if self.hotkey_manager:
+            self.hotkey_manager.update_hotkey(modifiers, vk_code)
+
+        # 保存其他设置（不再包含剪贴板监控）
         self.settings.set_show_tips(self.tips_check.isChecked())
         self.settings.set_auto_start(self.autostart_check.isChecked())
 
