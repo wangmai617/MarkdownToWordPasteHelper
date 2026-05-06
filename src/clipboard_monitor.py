@@ -2,7 +2,7 @@
 剪贴板监控模块
 实时监测剪贴板内容变化，识别是否为Markdown文本。
 为了省资源，用轮询的方式，每半秒多查一次。
-作者：上海外国语大学/王迈
+王迈（上海外国语大学）
 """
 
 from PyQt5.QtCore import QObject, QTimer
