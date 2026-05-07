@@ -2,7 +2,7 @@
 Markdown转Word格式转换模块
 将Markdown文本转换为HTML格式，并通过剪贴板以HTML格式写入，
 使得在Word中粘贴时样式完整保留。同时也提供纯文本备用。
-作者：王迈（上海外国语大学）
+作者：上海外国语大学，王迈
 """
 
 import markdown

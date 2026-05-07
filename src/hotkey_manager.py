@@ -2,7 +2,7 @@
 全局快捷键管理模块
 功能：注册全局快捷键Ctrl+Shift+V（也可自定义），键入时触发Markdown转换粘贴。
 主要靠RegisterHotKey这个API实现，因要全局监听，不能只用Qt的快捷键，否则只在应用激活时有效。
-王迈（上海外国语大学）
+作者：上海外国语大学，王迈
 """
 
 from PyQt5.QtCore import QObject, pyqtSignal
